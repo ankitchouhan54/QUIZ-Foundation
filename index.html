@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClaritySetu Physics: Heat & Temperature Assessment</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --primary-bg: #0f172a;
+            --secondary-bg: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent-color: #f6603b;
+            --success-color: #22c55e;
+            --error-color: #ef4444;
+            --flag-color: #f59e0b;
+            --selection-white: #ffffff;
+            --palette-unvisited: #334155;
+            --palette-answered: #059669;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-primary);
+            margin: 0; padding: 20px;
+            display: flex; justify-content: center; min-height: 100vh;
+        }
+
+        .main-wrapper {
+            display: flex; gap: 30px; width: 100%; max-width: 1200px;
+            align-items: flex-start;
+        }
+
+        .brand-header {
+            margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #334155;
+        }
+        .brand-name { font-size: 1.6rem; font-weight: 800; color: var(--accent-color); margin: 0; letter-spacing: 0.5px; }
+        .topic-subtext { font-size: 1.1rem; color: var(--text-secondary); font-weight: 400; }
+
+        .mode-container { position: relative; display: inline-block; }
+        .tooltip {
+            visibility: hidden; width: 280px; background-color: #0f172a; color: #fff;
+            text-align: left; border-radius: 8px; padding: 15px; position: absolute;
+            z-index: 10; bottom: 125%; left: 50%; transform: translateX(-50%);
+            opacity: 0; transition: opacity 0.3s; border: 1px solid var(--accent-color);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4); font-size: 0.9rem; pointer-events: none;
+        }
+        .mode-container:hover .tooltip { visibility: visible; opacity: 1; }
+
+        #side-palette {
+            display: none; flex: 0 0 150px; background-color: var(--secondary-bg);
+            padding: 15px; border-radius: 15px; border: 1px solid #334155;
+            position: sticky; top: 20px; text-align: center;
+            min-height: 450px; flex-direction: column;
+        }
+
+        .palette-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 8px; margin-top: 15px; flex-grow: 1;
+        }
+
+        .palette-item {
+            aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+            background-color: var(--palette-unvisited); border: 2px solid transparent;
+            border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85rem; transition: 0.2s;
+        }
+
+        .palette-item.current { border-color: var(--accent-color); background-color: #475569; }
+        .palette-item.answered { background-color: var(--palette-answered); color: white; }
+        .palette-item.flagged { background-color: var(--flag-color) !important; color: white; }
+
+        .submit-area { margin-top: 30px; padding-top: 15px; border-top: 1px solid #334155; }
+        .submit-btn-side {
+            width: 100%; padding: 12px; background: linear-gradient(135deg, var(--error-color), #b91c1c);
+            color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
+        }
+
+        .container {
+            flex: 1; background-color: var(--secondary-bg);
+            padding: 40px; border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); border: 1px solid #334155;
+        }
+
+        .question-text { font-size: 1.4rem; line-height: 1.6; margin-bottom: 30px; }
+
+        .option-btn {
+            display: block; width: 100%; padding: 18px; margin-bottom: 12px;
+            background-color: #2b394e; color: var(--text-primary);
+            border: 2px solid #475569; border-radius: 12px;
+            text-align: left; cursor: pointer; transition: all 0.3s ease; 
+            font-size: 1.1rem;
+        }
+
+        .option-btn:hover:not([disabled]):not(.selected) { transform: translateX(8px); border-color: var(--accent-color); }
+
+        .option-btn.selected {
+            background-color: #1e293b; border: 3px solid var(--selection-white) !important;
+            color: var(--selection-white); font-weight: bold;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+        }
+
+        .footer-nav {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 40px; padding-top: 20px; border-top: 1px solid #334155;
+        }
+
+        .nav-btn {
+            background: linear-gradient(135deg, var(--accent-color), #2563eb);
+            color: white; border: none; border-radius: 10px; padding: 14px 28px;
+            font-weight: bold; cursor: pointer;
+        }
+
+        #result-area { display: none; text-align: center; }
+        .score-big { font-size: 5rem; font-weight: 800; color: var(--success-color); margin: 0; }
+        
+        .review-card {
+            text-align: left; background: #0f172a; padding: 20px; 
+            border-radius: 12px; margin-bottom: 15px; border-left: 5px solid #334155;
+        }
+        .review-card.correct { border-left-color: var(--success-color); }
+        .review-card.wrong { border-left-color: var(--error-color); }
+    </style>
+</head>
+<body>
+
+<div class="main-wrapper">
+    <div id="side-palette">
+        <h4 style="margin:0; font-size: 0.7rem; color: var(--text-secondary); letter-spacing: 1px;">NAVIGATOR</h4>
+        <div class="palette-grid" id="palette-grid"></div>
+        <div class="submit-area">
+            <button class="submit-btn-side" onclick="confirmFinish()">SUBMIT EXAM</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="brand-header" id="quiz-header" style="display:none;">
+            <h1 class="brand-name">Thermal Physics | <span class="topic-subtext">| Heat & Temperature</span></h1>
+        </div>
+
+        <div id="intro-screen" style="text-align:center;">
+            <h1 style="font-size: 3rem; margin-bottom: 10px; color: var(--accent-color);">ClaritySetu Physics</h1>
+            <h2>Heat, Temperature & Anomalous Expansion</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 40px;">Class 8/9 ICSE Physics • 20 MCQs Assessment</p>
+            
+            <div style="background: rgba(255,255,255,0.05); padding: 40px; border-radius: 20px; display: inline-block;">
+                <h3 style="margin-top: 0; margin-bottom: 25px;">Choose Your Environment</h3>
+                <div style="display: flex; gap: 20px; justify-content: center;">
+                    <div class="mode-container">
+                        <button class="nav-btn" onclick="startQuiz('end')">Exam Mode</button>
+                        <span class="tooltip">Simulates a real test. Results and correct answers revealed only after submission.</span>
+                    </div>
+                    <div class="mode-container">
+                        <button class="nav-btn" style="background:#475569;" onclick="startQuiz('instant')">Practice Mode</button>
+                        <span class="tooltip">Learning-focused. The correct answer is revealed immediately after each selection.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="quiz-area" style="display:none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 id="q-title" style="color: var(--accent-color); margin:0;">Question 1 / 20</h3>
+                <button id="flag-btn" style="background:transparent; border:1px solid var(--flag-color); color:var(--flag-color); padding:5px 15px; border-radius:5px; cursor:pointer;" onclick="toggleFlag()">🚩 Flag</button>
+            </div>
+            <div class="question-text" id="question-text">Loading...</div>
+            <div id="options-container"></div>
+            <div class="footer-nav">
+                <button class="nav-btn" style="background: #475569" onclick="prevQuestion()">← Back</button>
+                <button class="nav-btn" onclick="nextQuestion()">Next Question →</button>
+            </div>
+        </div>
+
+        <div id="result-area">
+            <h1 class="brand-name" style="margin-bottom: 20px;">Assessment Result</h1>
+            <div style="font-size: 2rem; color: var(--text-secondary);" id="final-percent">0% Score</div>
+            <div class="score-big" id="final-score">0 / 20</div>
+            <div id="review-list" style="max-height: 400px; overflow-y: auto; margin-top: 30px; border-top: 1px solid #334155; padding-top: 20px;"></div>
+            <button class="nav-btn" style="width:100%; background: var(--success-color); margin-top:20px;" onclick="generatePDF()">📄 Download Full Report</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let studentName = ""; // Stores the name for use in the PDF function
+    const quizData = [
+        { q: "Heat energy is best defined as:", options: ["The average energy of a single molecule", "The mechanical energy produced by rubbing palms", "The internal energy of the molecules constituting a body", "The force of attraction between molecules"], correct: 2 },
+        { q: "What is the exact relationship between the calorie and the S.I. unit of heat?", options: ["1 cal = 4.186 J", "1 J = 4.186 cal", "1 cal = 10⁷ erg", "1 kcal = 4.186 J"], correct: 0 },
+        { q: "Heat is a form of energy because it can be produced from:", options: ["Mechanical energy (e.g., rubbing palms)", "Electrical energy (e.g., passing current through a wire)", "Chemical energy (e.g., burning coal)", "All of the above"], correct: 3 },
+        { q: "Temperature is a quantity that determines:", options: ["The total amount of energy in a body", "The direction of flow of heat when two bodies are in contact", "The mass of the body", "The material of the substance"], correct: 1 },
+        { q: "The S.I. unit of temperature is:", options: ["Joule (J)", "degree Celsius (°C)", "Kelvin (K)", "degree Fahrenheit (°F)"], correct: 2 },
+        { q: "The temperature of a body depends on the:", options: ["Total internal energy of its molecules", "Total potential energy of its molecules", "Average kinetic energy of its molecules", "Total mass of the body"], correct: 2 },
+        { q: "To find the temperature in Kelvin when the Celsius temperature (t°C) is known, we use:", options: ["T K = 273 - t°C", "T K = 273 + t°C", "T K = t°C / 273", "T K = 1.8 × t°C + 32"], correct: 1 },
+        { q: "The 'steam point' on the Fahrenheit scale is:", options: ["100°F", "373°F", "212°F", "32°F"], correct: 2 },
+        { q: "Which statement is true regarding heat and temperature?", options: ["Heat is measured by a thermometer", "Two bodies at the same temperature must have same quantity of heat", "Temperature alone does not tell us the quantity of heat energy", "S.I. unit of heat is Kelvin"], correct: 2 },
+        { q: "The ice point on the Kelvin scale is:", options: ["0 K", "100 K", "273 K", "373 K"], correct: 2 },
+        { q: "Expansion of a substance on heating is generally called:", options: ["Cubical expansion only", "Thermal expansion", "Anomalous expansion", "Linear expansion only"], correct: 1 },
+        { q: "Gases expand much more than solids and liquids because:", options: ["Gases have a definite shape", "Solids have the most kinetic energy", "Gases show much more cubical expansion for a given rise in temperature", "Solids only expand in one direction"], correct: 2 },
+        { q: "Anomalous expansion of water is defined as:", options: ["Expansion when heated from 4°C to 10°C", "Contraction when cooled from 10°C to 4°C", "Expansion when it is cooled from 4°C to 0°C", "Freezing of water at 0°C"], correct: 2 },
+        { q: "In Hope’s Experiment, when water is cooled from room temperature, which thermometer falls rapidly first?", options: ["The upper thermometer T1", "The lower thermometer T2", "Both fall at the same rate", "Neither thermometer shows a change"], correct: 1 },
+        { q: "During Hope’s Experiment, once the water at the bottom reaches 4°C, the reading of T2:", options: ["Continues to fall to 0°C", "Becomes steady at 4°C", "Starts rising immediately", "Fluctuates between 0°C and 4°C"], correct: 1 },
+        { q: "According to Hope’s Experiment, which thermometer finally records 0°C?", options: ["The lower thermometer T2", "The upper thermometer T1", "Both T1 and T2", "Neither thermometer"], correct: 1 },
+        { q: "In Hope’s apparatus, the freezing mixture is kept in:", options: ["The bottom of the cylinder", "The top of the cylinder", "The central cylindrical trough", "Outside the cylinder"], correct: 2 },
+        { q: "Aquatic life survives in frozen ponds because:", options: ["Ice is a good conductor of heat", "The bottom layer remains at 4°C due to maximum density", "The entire pond remains at 0°C", "Fish can live inside the ice layer"], correct: 1 },
+        { q: "Water pipelines in cold countries often burst because:", options: ["Pipes contract when temp falls below 0°C", "Water contracts when it freezes", "Water expands when cooled below 4°C", "Ice melts inside the pipes"], correct: 2 },
+        { q: "At 4°C, the volume of 1g of water is:", options: ["1.0003 cm³", "0.9999 cm³", "1.0000 cm³", "1.0001 cm³"], correct: 2 },
+    ];
+
+    let currentIdx = 0;
+    let quizMode = '';
+    let userAnswers = Array(quizData.length).fill(null);
+    let flaggedItems = Array(quizData.length).fill(false);
+
+    function startQuiz(mode) {
+        quizMode = mode;
+        document.getElementById('intro-screen').style.display = 'none';
+        document.getElementById('quiz-header').style.display = 'block';
+        document.getElementById('quiz-area').style.display = 'block';
+        document.getElementById('side-palette').style.display = 'flex';
+        initPalette();
+        loadQuestion();
+    }
+
+    function initPalette() {
+        const grid = document.getElementById('palette-grid');
+        grid.innerHTML = '';
+        quizData.forEach((_, i) => {
+            const item = document.createElement('div');
+            item.className = 'palette-item';
+            item.id = `pal-${i}`;
+            item.innerText = i + 1;
+            item.onclick = () => jumpTo(i);
+            grid.appendChild(item);
+        });
+    }
+
+    function loadQuestion() {
+        const data = quizData[currentIdx];
+        document.getElementById('q-title').innerText = `Question ${currentIdx + 1} / 20`;
+        document.getElementById('question-text').innerText = data.q;
+        const container = document.getElementById('options-container');
+        container.innerHTML = '';
+        data.options.forEach((opt, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = `${String.fromCharCode(65+i)}. ${opt}`;
+            if (userAnswers[currentIdx] === i) btn.classList.add('selected');
+            if (quizMode === 'instant' && userAnswers[currentIdx] !== null) {
+                if (i === data.correct) btn.style.borderColor = "var(--success-color)";
+                else if (i === userAnswers[currentIdx]) btn.style.borderColor = "var(--error-color)";
+                btn.disabled = true;
+            }
+            btn.onclick = () => selectOption(i, btn);
+            container.appendChild(btn);
+        });
+        updatePaletteVisuals();
+    }
+
+    function selectOption(idx, btn) {
+        if (quizMode === 'instant' && userAnswers[currentIdx] !== null) return;
+        userAnswers[currentIdx] = idx;
+        if (quizMode === 'instant') {
+            const correct = quizData[currentIdx].correct;
+            if (idx === correct) btn.style.borderColor = "var(--success-color)";
+            else { btn.style.borderColor = "var(--error-color)"; document.querySelectorAll('.option-btn')[correct].style.borderColor = "var(--success-color)"; }
+            document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+        } else {
+            document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        }
+        updatePaletteVisuals();
+    }
+
+    function toggleFlag() { flaggedItems[currentIdx] = !flaggedItems[currentIdx]; updatePaletteVisuals(); }
+    function nextQuestion() { if (currentIdx < quizData.length - 1) { currentIdx++; loadQuestion(); } }
+    function prevQuestion() { if (currentIdx > 0) { currentIdx--; loadQuestion(); } }
+    function jumpTo(i) { currentIdx = i; loadQuestion(); }
+
+    function updatePaletteVisuals() {
+        quizData.forEach((_, i) => {
+            const el = document.getElementById(`pal-${i}`);
+            if (!el) return;
+            el.className = 'palette-item';
+            if (i === currentIdx) el.classList.add('current');
+            if (userAnswers[i] !== null) el.classList.add('answered');
+            if (flaggedItems[i]) el.classList.add('flagged');
+        });
+    }
+
+    function confirmFinish() {
+        const unanswered = userAnswers.filter(a => a === null).length;
+        if (confirm(`You have ${unanswered} unanswered questions. Submit entire exam now?`)) showResults();
+    }
+
+    function showResults() {
+        document.getElementById('quiz-area').style.display = 'none';
+        document.getElementById('side-palette').style.display = 'none';
+        document.getElementById('quiz-header').style.display = 'none';
+        document.getElementById('result-area').style.display = 'block';
+        
+        let score = 0;
+        const list = document.getElementById('review-list');
+        list.innerHTML = '';
+
+        quizData.forEach((data, i) => {
+            const isCorrect = userAnswers[i] === data.correct;
+            if (isCorrect) score++;
+            list.innerHTML += `
+                <div class="review-card ${isCorrect ? 'correct' : 'wrong'}">
+                    <strong>Q${i+1}: ${data.q}</strong><br>
+                    <span style="color:${isCorrect ? '#22c55e' : '#ef4444'}">Your Choice: ${userAnswers[i] !== null ? data.options[userAnswers[i]] : 'Skipped'}</span><br>
+                    <span style="color:#94a3b8">Correct Answer: ${data.options[data.correct]}</span>
+                </div>
+            `;
+        });
+        const percent = Math.round((score / quizData.length) * 100);
+        document.getElementById('final-percent').innerText = percent + "% Score";
+        document.getElementById('final-score').innerText = `${score} / ${quizData.length} Correct`;
+
+            studentName = prompt("Please enter your name for the record:");
+            const finalScore = score;
+            const finalPercent = percent;
+
+            // The Bridge to Google Sheets
+        const scriptURL = 'https://script.google.com/macros/s/AKfycbz0jQPw-vHQ2gvjjbaX6aRXbtStKsX2yLOj0aDOSEreOGFErU94_mJVxOO0EEGKweLB/exec';
+
+        const quizTopic = "Thermal Physics-1"; // Change this for each new quiz file
+
+        fetch(scriptURL, {
+        method: 'POST',
+        mode: 'no-cors',
+        cache: 'no-cache',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            quizName: quizTopic,    // <--- Sending the specific quiz name
+            studentName: studentName,
+            score: finalScore,
+            percent: finalPercent
+        })
+        }).then(() => {
+        alert("Your results have been submitted to ClaritySetu successfully!");
+        }).catch(err => console.error("Submission failed", err));
+    }
+
+    function generatePDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Header Styling
+    doc.setFontSize(22);
+    doc.setTextColor(246, 96, 59); // Your brand orange-red
+    doc.text("ClaritySetu Physics Assessment", 10, 20);
+    
+    const scoreText = document.getElementById('final-score').innerText;
+    const percentText = document.getElementById('final-percent').innerText;
+    
+    // Student Info - ADDED THESE LINES
+    doc.setFontSize(14);
+    doc.setTextColor(0,0,0);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Student Name: ${studentName || "Guest"}`, 10, 32);
+    
+    // Quiz Details
+    doc.setFont("helvetica", "normal");
+    doc.text(`Topic: Heat, Temperature & Anomalous Expansion`, 10, 40);
+    doc.text(`Final Score: ${scoreText} (${percentText})`, 10, 48);
+    
+    // Starting 'y' position for the questions
+    let y = 60; 
+    
+    quizData.forEach((data, i) => {
+        if (y > 260) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i+1}. ${data.q.substring(0, 75)}...`, 10, y);
+        y += 7;
+        doc.setFont("helvetica", "normal");
+        doc.text(`   Correct Answer: ${data.options[data.correct]}`, 10, y);
+        y += 12;
+    });
+    
+    // Save with a dynamic filename
+    const fileName = studentName ? `ClaritySetu_${studentName}.pdf` : "ClaritySetu_Report.pdf";
+    doc.save(fileName);
+    }
+</script>
+</body>
+</html>
